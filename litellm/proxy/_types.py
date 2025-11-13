@@ -388,6 +388,7 @@ class LiteLLMRoutes(enum.Enum):
         + passthrough_routes_wildcard
         + apply_guardrail_routes
         + mcp_routes
+        + ["/v1/model/info"]  # VS Code extensions request models via this route
     )
     info_routes = [
         "/key/info",
