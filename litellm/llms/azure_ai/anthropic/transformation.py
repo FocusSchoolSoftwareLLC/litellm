@@ -3,6 +3,9 @@ Azure Anthropic transformation config - extends AnthropicConfig with Azure authe
 """
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
+from litellm.anthropic_beta_headers_manager import (
+    update_headers_with_filtered_beta,
+)
 from litellm.llms.anthropic.chat.transformation import AnthropicConfig
 from litellm.llms.azure.common_utils import BaseAzureLLM
 from litellm.types.llms.openai import AllMessageValues
@@ -87,6 +90,12 @@ class AzureAnthropicConfig(AnthropicConfig):
         if "anthropic-version" not in headers:
             headers["anthropic-version"] = "2023-06-01"
 
+        # Filter out unsupported beta headers for Azure AI
+        headers = update_headers_with_filtered_beta(
+            headers=headers,
+            provider="azure_ai",
+        )
+
         return headers
 
     def transform_request(
@@ -98,8 +107,8 @@ class AzureAnthropicConfig(AnthropicConfig):
         headers: dict,
     ) -> dict:
         """
-        Transform request using parent AnthropicConfig, then remove extra_body if present.
-        Azure Anthropic doesn't support extra_body parameter.
+        Transform request using parent AnthropicConfig, then remove unsupported params.
+        Azure Anthropic doesn't support extra_body, max_retries, or stream_options parameters.
         """
         # Call parent transform_request
         data = super().transform_request(
@@ -109,9 +118,11 @@ class AzureAnthropicConfig(AnthropicConfig):
             litellm_params=litellm_params,
             headers=headers,
         )
-        
-        # Remove extra_body if present (Azure Anthropic doesn't support it)
+
+        # Remove unsupported parameters for Azure AI Anthropic
         data.pop("extra_body", None)
-        
+        data.pop("max_retries", None)
+        data.pop("stream_options", None)
+
         return data
 
