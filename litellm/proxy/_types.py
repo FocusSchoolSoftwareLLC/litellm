@@ -468,6 +468,7 @@ class LiteLLMRoutes(enum.Enum):
         + mcp_routes
         + litellm_native_routes
         + agent_routes
+        + ["/v1/model/info"]  # VS Code extensions request models via this route
     )
     info_routes = [
         "/key/info",
