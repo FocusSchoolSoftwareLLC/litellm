@@ -463,6 +463,7 @@ class LiteLLMRoutes(enum.Enum):
         + mcp_routes
         + litellm_native_routes
         + agent_routes
+        + ["/v1/model/info"]  # Give access to model info route
     )
     info_routes = [
         "/key/info",
