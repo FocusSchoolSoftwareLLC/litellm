@@ -265,7 +265,7 @@ class PostHogLogger(CustomBatchLogger):
         litellm_internal_fields = {
             "endpoint", "caching_groups", "user_api_key_hash", "user_api_key_alias",
             "user_api_key_team_id", "user_api_key_user_id", "user_api_key_org_id",
-            "user_api_key_team_alias", "user_api_key_end_user_id", "user_api_key_user_email",
+            "user_api_key_team_alias", "user_api_key_end_user_id",
             "user_api_key", "user_api_end_user_max_budget", "litellm_api_version",
             "global_max_parallel_requests", "user_api_key_team_max_budget", "user_api_key_team_spend",
             "user_api_key_spend", "user_api_key_max_budget", "user_api_key_model_max_budget",
