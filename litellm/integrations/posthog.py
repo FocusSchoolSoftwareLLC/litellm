@@ -234,6 +234,9 @@ class PostHogLogger(CustomBatchLogger):
             if error_str is not None:
                 properties["$ai_error"] = error_str
 
+        if 'metadata' in standard_logging_object:
+            properties["$ai_metadata"] = standard_logging_object["metadata"]
+
         # Add trace properties
         self._add_trace_properties(properties, kwargs)
 
@@ -281,6 +284,16 @@ class PostHogLogger(CustomBatchLogger):
     def _get_distinct_id(
         self, standard_logging_object: StandardLoggingPayload, kwargs: Dict[str, Any]
     ) -> str:
+        logging_metadata = self._safe_get(standard_logging_object, "metadata", {})
+        user_email_or_id = (
+            self._safe_get(logging_metadata, 'user_api_key_user_email') or
+            self._safe_get(logging_metadata, 'user_api_key_user_id') or
+            self._safe_get(logging_metadata, 'user_api_key_alias')
+        )
+
+        if user_email_or_id:
+            return str(user_email_or_id)
+
         metadata = self._extract_metadata(kwargs)
         user_id = self._safe_get(metadata, "user_id")
         if user_id:
