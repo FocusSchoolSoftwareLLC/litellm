@@ -45,12 +45,12 @@ class PostHogLogger(CustomBatchLogger):
         """
         try:
             verbose_logger.debug("PostHog: in init posthog logger")
-            
+
             self.is_mock_mode = should_use_posthog_mock()
             if self.is_mock_mode:
                 create_mock_posthog_client()
                 verbose_logger.debug("[POSTHOG MOCK] PostHog logger initialized in mock mode")
-            
+
             if os.getenv("POSTHOG_API_KEY", None) is None:
                 raise Exception("POSTHOG_API_KEY is not set, set 'POSTHOG_API_KEY=<>'")
 
@@ -58,7 +58,7 @@ class PostHogLogger(CustomBatchLogger):
                 llm_provider=httpxSpecialProvider.LoggingCallback
             )
             self.sync_client = _get_httpx_client()
-            
+
             self.POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY")
             posthog_api_url = os.getenv("POSTHOG_API_URL", "https://us.i.posthog.com")
             self.posthog_host = posthog_api_url.rstrip('/')
@@ -91,6 +91,8 @@ class PostHogLogger(CustomBatchLogger):
             if api_key is None or api_url is None:
                 raise Exception("PostHog credentials not found in kwargs")
             event_payload = self.create_posthog_event_payload(kwargs)
+
+            verbose_logger.debug("PostHog: Logging sync success span %s", event_payload["properties"]["$ai_span_id"])
 
             headers = {
                 "Content-Type": "application/json",
@@ -145,6 +147,8 @@ class PostHogLogger(CustomBatchLogger):
         # Note: response_obj, start_time, end_time not used - all data comes from kwargs
         api_key, api_url = self._get_credentials_for_request(kwargs)
         event_payload = self.create_posthog_event_payload(kwargs)
+
+        verbose_logger.debug("PostHog: Logging async span %s", event_payload["properties"]["$ai_span_id"])
 
         # Store event with its credentials for batch sending
         self.log_queue.append({
@@ -234,8 +238,10 @@ class PostHogLogger(CustomBatchLogger):
             if error_str is not None:
                 properties["$ai_error"] = error_str
 
-        if 'metadata' in standard_logging_object:
-            properties["$ai_metadata"] = standard_logging_object["metadata"]
+        if "metadata" in standard_logging_object:
+            properties["$ai_metadata"] = {
+                "user_api_key_user_email": self._safe_get(standard_logging_object["metadata"], "user_api_key_user_email")
+            }
 
         # Add trace properties
         self._add_trace_properties(properties, kwargs)
@@ -286,9 +292,9 @@ class PostHogLogger(CustomBatchLogger):
     ) -> str:
         logging_metadata = self._safe_get(standard_logging_object, "metadata", {})
         user_email_or_id = (
-            self._safe_get(logging_metadata, 'user_api_key_user_email') or
-            self._safe_get(logging_metadata, 'user_api_key_user_id') or
-            self._safe_get(logging_metadata, 'user_api_key_alias')
+            self._safe_get(logging_metadata, "user_api_key_user_email") or
+            self._safe_get(logging_metadata, "user_api_key_user_id") or
+            self._safe_get(logging_metadata, "user_api_key_alias")
         )
 
         if user_email_or_id:
@@ -347,13 +353,21 @@ class PostHogLogger(CustomBatchLogger):
             verbose_logger.debug(
                 f"PostHog: Sending batch of {len(self.log_queue)} events"
             )
-            
+
             if self.is_mock_mode:
                 verbose_logger.debug("[POSTHOG MOCK] Mock mode enabled - API calls will be intercepted")
 
             # Group events by credentials for batch sending
             batches_by_credentials: Dict[tuple[str, str], list] = {}
+            seen = set()
+
             for item in self.log_queue:
+                span_id = self._safe_get(item["properties"], "$ai_span_id", default="")
+
+                if span_id and (span_id in seen or seen.add(span_id)):
+                    verbose_logger.debug("Posthog: Already processed span %s; skipping", span_id)
+                    continue
+
                 key = (item["api_key"], item["api_url"])
                 if key not in batches_by_credentials:
                     batches_by_credentials[key] = []
