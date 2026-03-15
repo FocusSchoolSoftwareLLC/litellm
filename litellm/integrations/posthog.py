@@ -362,7 +362,7 @@ class PostHogLogger(CustomBatchLogger):
             seen = set()
 
             for item in self.log_queue:
-                span_id = self._safe_get(item["properties"], "$ai_span_id", default="")
+                span_id = self._safe_get(item["event"]["properties"], "$ai_span_id", default="")
 
                 if span_id and (span_id in seen or seen.add(span_id)):
                     verbose_logger.debug("Posthog: Already processed span %s; skipping", span_id)
