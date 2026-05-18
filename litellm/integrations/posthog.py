@@ -94,6 +94,8 @@ class PostHogLogger(CustomBatchLogger):
                 raise Exception("PostHog credentials not found in kwargs")
             event_payload = self.create_posthog_event_payload(kwargs)
 
+            verbose_logger.debug("PostHog: Logging sync success span %s", event_payload["properties"]["$ai_span_id"])
+
             headers = {
                 "Content-Type": "application/json",
             }
@@ -149,6 +151,8 @@ class PostHogLogger(CustomBatchLogger):
         # Note: response_obj, start_time, end_time not used - all data comes from kwargs
         api_key, api_url = self._get_credentials_for_request(kwargs)
         event_payload = self.create_posthog_event_payload(kwargs)
+
+        verbose_logger.debug("PostHog: Logging async span %s", event_payload["properties"]["$ai_span_id"])
 
         # Store event with its credentials for batch sending
         self.log_queue.append(
@@ -246,6 +250,11 @@ class PostHogLogger(CustomBatchLogger):
             if error_str is not None:
                 properties["$ai_error"] = error_str
 
+        if "metadata" in standard_logging_object:
+            properties["$ai_metadata"] = {
+                "user_api_key_user_email": self._safe_get(standard_logging_object["metadata"], "user_api_key_user_email")
+            }
+
         # Add trace properties
         self._add_trace_properties(properties, kwargs)
 
@@ -288,7 +297,6 @@ class PostHogLogger(CustomBatchLogger):
             "user_api_key_org_id",
             "user_api_key_team_alias",
             "user_api_key_end_user_id",
-            "user_api_key_user_email",
             "user_api_key",
             "user_api_end_user_max_budget",
             "litellm_api_version",
@@ -321,6 +329,16 @@ class PostHogLogger(CustomBatchLogger):
     def _get_distinct_id(
         self, standard_logging_object: StandardLoggingPayload, kwargs: Dict[str, Any]
     ) -> str:
+        logging_metadata = self._safe_get(standard_logging_object, "metadata", {})
+        user_email_or_id = (
+            self._safe_get(logging_metadata, "user_api_key_user_email") or
+            self._safe_get(logging_metadata, "user_api_key_user_id") or
+            self._safe_get(logging_metadata, "user_api_key_alias")
+        )
+
+        if user_email_or_id:
+            return str(user_email_or_id)
+
         metadata = self._extract_metadata(kwargs)
         user_id = self._safe_get(metadata, "user_id")
         if user_id:
@@ -390,7 +408,15 @@ class PostHogLogger(CustomBatchLogger):
 
             # Group events by credentials for batch sending
             batches_by_credentials: Dict[tuple[str, str], list] = {}
+            seen = set()
+
             for item in self.log_queue:
+                span_id = self._safe_get(item["properties"], "$ai_span_id", default="")
+
+                if span_id and (span_id in seen or seen.add(span_id)):
+                    verbose_logger.debug("Posthog: Already processed span %s; skipping", span_id)
+                    continue
+
                 key = (item["api_key"], item["api_url"])
                 if key not in batches_by_credentials:
                     batches_by_credentials[key] = []
