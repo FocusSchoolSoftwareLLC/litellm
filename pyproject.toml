@@ -76,6 +76,9 @@ proxy = [
     "soundfile>=0.12.1,<1.0",
     "pyroscope-io>=0.8.16,<1.0; sys_platform != 'win32'",
     "expression>=5.6.0,<6.0",
+
+    # Focus dependencies
+    "lunary==1.4.37",
 ]
 # Thin client install for the `lite` CLI on developer laptops. The CLI's heavy
 # imports are all guarded, so it runs on the base SDK plus just these five, and
@@ -164,6 +167,9 @@ proxy-runtime = [
     "pypdf>=6.16.1,<7.0",
     "llm-sandbox>=0.3.39,<1.0",
     "detect-secrets>=1.5.0,<2.0",
+
+    # Focus dependencies
+    "lunary==1.4.37",
 ]
 
 [project.scripts]

@@ -562,7 +562,12 @@ class LangFuseLogger:
             allowlisted_metadata: Final[StandardLoggingMetadata | Mapping[str, object]] = (
                 standard_logging_object["metadata"] if standard_logging_object is not None else _NO_METADATA
             )
-            end_user_id: Final = allowlisted_metadata.get("user_api_key_end_user_id", None)
+            end_user_id: Final = (
+                allowlisted_metadata.get("user_api_key_user_email", None)
+                or allowlisted_metadata.get("user_api_key_user_id", None)
+                or allowlisted_metadata.get("user_api_key_alias", None)
+                or allowlisted_metadata.get("user_api_key_end_user_id", None)
+            )
             prompt_management_metadata: Final[StandardLoggingPromptManagementMetadata | None] = cast(
                 StandardLoggingPromptManagementMetadata | None,
                 allowlisted_metadata.get("prompt_management_metadata", None),
